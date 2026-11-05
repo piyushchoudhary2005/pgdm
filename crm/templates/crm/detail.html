@@ -1,0 +1,18 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>{{ title }} details</h3>
+<table class="table w-50">{% for label, val in fields %}<tr><th>{{ label }}</th><td>{{ val|default_if_none:"-" }}</td></tr>{% endfor %}</table>
+<a class="btn btn-primary" href="{{ edit_url }}">Edit</a> <a class="btn btn-link" href="{{ list_url }}">Back</a>
+{% if slug == 'leads' and object.status == 'Qualified' %}
+<form method="post" action="{% url 'convert_lead' object.pk %}" class="d-inline">{% csrf_token %}
+  <button class="btn btn-success">Convert to Customer + Opportunity</button></form>
+{% endif %}
+{% if slug == 'followups' and object.status == 'Planned' %}
+<form method="post" action="{% url 'complete_followup' object.pk %}" class="d-inline">{% csrf_token %}
+  <button class="btn btn-success">Mark Completed</button></form>
+{% endif %}
+{% for name, items in related %}<h5 class="mt-4">{{ name }}</h5>
+<ul>{% for i in items %}<li>{{ i }}</li>{% empty %}<li>None</li>{% endfor %}</ul>{% endfor %}
+{% if history %}<h5 class="mt-4">History</h5>
+<table class="table table-sm"><tr><th>When</th><th>User</th><th>Action</th></tr>
+{% for h in history %}<tr><td>{{ h.created_date }}</td><td>{{ h.user|default_if_none:"-" }}</td><td>{{ h.action }}</td></tr>{% endfor %}</table>{% endif %}
+{% endblock %}

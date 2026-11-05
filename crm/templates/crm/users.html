@@ -1,0 +1,7 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>Users</h3>
+<form class="mb-3"><input name="q" value="{{ q }}" placeholder="Search username" class="form-control w-25 d-inline"> <button class="btn btn-secondary">Search</button></form>
+<a class="btn btn-primary mb-3" href="{% url 'user_create' %}">+ New user</a>
+<table class="table"><tr><th>Username</th><th>Email</th><th>Role</th><th>Active</th><th>Locked</th><th></th></tr>
+{% for u, r, locked in rows %}<tr><td>{{ u.username }}</td><td>{{ u.email }}</td><td>{{ r }}</td><td>{{ u.is_active }}</td><td>{{ locked }}</td>
+<td><a href="{% url 'user_edit' u.pk %}">Edit</a> | <a href="{% url 'user_reset' u.pk %}">Reset password</a></td></tr>{% endfor %}</table>{% endblock %}

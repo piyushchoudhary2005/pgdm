@@ -1,0 +1,29 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>Dashboard</h3>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-auto"><select name="range" class="form-select">
+    {% for v, l in ranges %}<option value="{{ v }}" {% if request.GET.range == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+  </select></div>
+  <div class="col-auto"><input type="date" name="from" value="{{ request.GET.from }}" class="form-control"></div>
+  <div class="col-auto"><input type="date" name="to" value="{{ request.GET.to }}" class="form-control"></div>
+  <div class="col-auto"><button class="btn btn-secondary">Apply</button></div>
+</form>
+<div class="row g-3 mb-4">{% for label, value in cards %}
+  <div class="col-6 col-md-3"><div class="card text-center"><div class="card-body">
+    <div class="text-muted">{{ label }}</div><div class="fs-3">{{ value }}</div></div></div></div>{% endfor %}</div>
+<div class="row">
+  <div class="col-md-4"><canvas id="leadChart"></canvas></div>
+  <div class="col-md-4"><canvas id="oppChart"></canvas></div>
+  <div class="col-md-4"><canvas id="salesChart"></canvas></div>
+</div>
+<h5 class="mt-4">Upcoming follow-ups</h5>
+<ul>{% for f in upcoming %}<li>{{ f }}</li>{% empty %}<li>None</li>{% endfor %}</ul>
+{{ charts|json_script:"chart-data" }}{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const d = JSON.parse(document.getElementById('chart-data').textContent);
+new Chart(document.getElementById('leadChart'), {type:'doughnut', data:{labels:d.lead.labels, datasets:[{data:d.lead.values}]}});
+new Chart(document.getElementById('oppChart'), {type:'bar', data:{labels:d.opp.labels, datasets:[{label:'Opportunities', data:d.opp.values}]}});
+new Chart(document.getElementById('salesChart'), {type:'line', data:{labels:d.sales.labels, datasets:[{label:'Won amount', data:d.sales.values}]}});
+</script>{% endblock %}

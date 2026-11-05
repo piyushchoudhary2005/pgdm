@@ -1,0 +1,11 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>Pending Follow-Ups</h3>
+{% for label, items, color in sections %}
+<h5 class="text-{{ color }} mt-4">{{ label }} ({{ items|length }})</h5>
+<table class="table table-sm"><tr><th>Date</th><th>Related</th><th>Subject</th><th>Type</th><th>Owner</th><th></th></tr>
+{% for f in items %}<tr><td>{{ f.follow_up_date }}</td><td>{{ f.customer|default:f.lead }}</td><td>{{ f.subject }}</td>
+<td>{{ f.follow_up_type }}</td><td>{{ f.assigned_to }}</td>
+<td><a href="{% url 'followups_edit' f.pk %}">Reschedule</a>
+<form method="post" action="{% url 'complete_followup' f.pk %}" class="d-inline">{% csrf_token %}<button class="btn btn-sm btn-success">Complete</button></form></td></tr>
+{% empty %}<tr><td colspan="6">None</td></tr>{% endfor %}</table>
+{% endfor %}{% endblock %}

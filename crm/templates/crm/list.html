@@ -1,0 +1,23 @@
+{% extends 'crm/base.html' %}{% block content %}
+<div class="d-flex justify-content-between mb-3"><h3>{{ title }} list</h3><a class="btn btn-primary" href="{{ create_url }}">+ New</a></div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-4"><input class="form-control" name="q" value="{{ request.GET.q }}" placeholder="Search"></div>
+  <div class="col-md-2"><input class="form-control" name="status" value="{{ request.GET.status }}" placeholder="Status"></div>
+  <div class="col-md-2"><input type="date" class="form-control" name="date" value="{{ request.GET.date }}"></div>
+  <div class="col"><button class="btn btn-secondary">Filter</button> <a class="btn btn-link" href="{{ list_url }}">Reset</a></div>
+</form>
+<table class="table table-striped">
+  <thead><tr>{% for c in columns %}<th>{{ c }}</th>{% endfor %}<th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}<tr>
+    {% for c in r.cells %}<td>{{ c|default_if_none:"-" }}</td>{% endfor %}
+    <td><a href="{{ r.detail }}">View</a> | <a href="{{ r.edit }}">Edit</a>
+      {% if role != 'SalesExecutive' %} | <a class="text-danger" href="{{ r.delete }}">Delete</a>{% endif %}</td>
+  </tr>{% empty %}<tr><td colspan="99">No records.</td></tr>{% endfor %}
+  </tbody>
+</table>
+<div>
+  {% if page_obj.has_previous %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}">Prev</a>{% endif %}
+  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  {% if page_obj.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&status={{ request.GET.status }}">Next</a>{% endif %}
+</div>{% endblock %}

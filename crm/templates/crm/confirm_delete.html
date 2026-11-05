@@ -1,0 +1,4 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>Delete {{ title }}?</h3><p><b>{{ object }}</b> and its related records will be permanently deleted.</p>
+<form method="post">{% csrf_token %}<button class="btn btn-danger">Yes, delete</button>
+<a class="btn btn-link" href="{{ list_url }}">Cancel</a></form>{% endblock %}

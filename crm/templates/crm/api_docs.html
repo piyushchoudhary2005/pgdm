@@ -1,0 +1,15 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>AcxiomCRM REST API</h3>
+<p>Authentication: session cookie (after <code>POST /api/auth/login</code>) or HTTP Basic. Errors use this shape:
+<code>{"status": 400, "errors": {...}}</code>. Common status codes: 200, 201, 400, 401, 403, 404, 409.</p>
+<table class="table table-sm"><tr><th>Method</th><th>Endpoint</th><th>Body / response</th><th>Access</th></tr>
+<tr><td>POST</td><td>/api/auth/login</td><td>{username, password} → {username, role}. Rate limited, 10/min</td><td>Public</td></tr>
+<tr><td>POST</td><td>/api/auth/logout</td><td>→ {detail}</td><td>Authenticated</td></tr>
+<tr><td>GET, POST</td><td>/api/customers</td><td>Customer DTO list / create → 201</td><td>Scoped by role</td></tr>
+<tr><td>GET, PUT, DELETE</td><td>/api/customers/{id}</td><td>DELETE deactivates (Admin/Manager only)</td><td>Scoped by role</td></tr>
+<tr><td>GET, POST</td><td>/api/leads</td><td>Lead DTO</td><td>Scoped by role</td></tr>
+<tr><td>GET, POST</td><td>/api/opportunities</td><td>Opportunity DTO with model validation</td><td>Scoped by role</td></tr>
+<tr><td>GET, POST</td><td>/api/followups</td><td>Follow-up DTO</td><td>Scoped by role</td></tr>
+<tr><td>GET</td><td>/api/reports/pipeline</td><td>[{stage, owner, count, amount, weighted}]</td><td>Admin/Manager all, Sales own</td></tr>
+</table>
+{% endblock %}

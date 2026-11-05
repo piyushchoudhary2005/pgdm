@@ -1,0 +1,4 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>Reports</h3>
+<div class="list-group w-50">{% for slug, title in items %}<a class="list-group-item" href="{% url 'report' slug %}">{{ title }}</a>{% endfor %}</div>
+{% endblock %}

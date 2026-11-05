@@ -1,0 +1,6 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>Roles &amp; Permissions</h3>
+<ul>{% for r, n in counts %}<li>{{ r }}: {{ n }} user(s)</li>{% endfor %}</ul>
+<table class="table table-bordered"><tr><th>Module</th><th>Admin</th><th>Manager</th><th>SalesExecutive</th></tr>
+{% for m, a, b, c in perms %}<tr><td>{{ m }}</td><td>{{ a }}</td><td>{{ b }}</td><td>{{ c }}</td></tr>{% endfor %}</table>
+<p><a href="{% url 'users' %}">Change a user's role</a></p>{% endblock %}

@@ -1,0 +1,5 @@
+{% extends 'crm/base.html' %}{% block content %}
+<h3>Search: {{ q }}</h3>
+{% for name, items in results %}<h5>{{ name }}</h5>
+<ul>{% for obj, url in items %}<li><a href="{{ url }}">{{ obj }}</a></li>{% empty %}<li>No matches</li>{% endfor %}</ul>{% endfor %}
+{% endblock %}
