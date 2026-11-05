@@ -11,6 +11,4 @@
 {% for h in heads %}<th><a href="?{{ q_nosort }}&amp;sort={{ h.i }}&amp;dir={{ h.dir }}">{{ h.label }}</a></th>{% endfor %}</tr>
 {% for r in page %}<tr>{% for c in r %}<td>{{ c|default_if_none:"" }}</td>{% endfor %}</tr>
 {% empty %}<tr><td colspan="99">No data.</td></tr>{% endfor %}</table>
-{% if page.has_previous %}<a href="?{{ q }}&amp;page={{ page.previous_page_number }}">Prev</a>{% endif %}
-Page {{ page.number }}/{{ page.paginator.num_pages }}
-{% if page.has_next %}<a href="?{{ q }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}{% endblock %}
+{% include "crm/_pagination.html" %}{% endblock %}

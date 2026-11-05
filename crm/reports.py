@@ -13,6 +13,7 @@ from django.utils import timezone
 from .access import CUSTOMER_SCOPE, role, scope
 from .audit import log_audit
 from .models import AuditLog, Customer, FollowUp, Lead, Opportunity
+from .pagination import query_string_without_page
 
 
 ALL_ROLES = ('Admin', 'Manager', 'SalesExecutive')
@@ -296,11 +297,12 @@ def report(request, name):
         return response
 
     query_without_page = query.copy()
-    query_without_page.pop('page', None)
     query_without_page.pop('export', None)
+    query_string = query_string_without_page(query_without_page)
     query_without_sort = query_without_page.copy()
     query_without_sort.pop('sort', None)
     query_without_sort.pop('dir', None)
+    query_without_sort_string = query_string_without_page(query_without_sort)
     header_context = [
         {
             'label': header,
@@ -314,7 +316,9 @@ def report(request, name):
         'name': name,
         'heads': header_context,
         'page': Paginator(rows, 15).get_page(query.get('page')),
+        'pagination_page': Paginator(rows, 15).get_page(query.get('page')),
         'fvals': [(field, query.get(field, '')) for field in filters],
-        'q': query_without_page.urlencode(),
-        'q_nosort': query_without_sort.urlencode(),
+        'q': query_string,
+        'qs_without_page': query_string,
+        'q_nosort': query_without_sort_string,
     })

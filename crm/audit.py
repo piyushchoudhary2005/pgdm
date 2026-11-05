@@ -4,8 +4,7 @@ from .models import AuditLog
 
 def get_ip(request):
     if request is None: return None
-    xff = request.META.get('HTTP_X_FORWARDED_FOR')
-    return xff.split(',')[0].strip() if xff else request.META.get('REMOTE_ADDR')
+    return request.META.get('REMOTE_ADDR')
 
 def dump(obj): return json.dumps(model_to_dict(obj), default=str)
 

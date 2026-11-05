@@ -1,0 +1,9 @@
+<div>
+  {% if pagination_page.has_previous %}
+    <a class="btn btn-sm btn-outline-secondary" href="{% if qs_without_page %}?{{ qs_without_page }}&amp;{% else %}?{% endif %}page={{ pagination_page.previous_page_number }}">Prev</a>
+  {% endif %}
+  Page {{ pagination_page.number }} of {{ pagination_page.paginator.num_pages }}
+  {% if pagination_page.has_next %}
+    <a class="btn btn-sm btn-outline-secondary" href="{% if qs_without_page %}?{{ qs_without_page }}&amp;{% else %}?{% endif %}page={{ pagination_page.next_page_number }}">Next</a>
+  {% endif %}
+</div>

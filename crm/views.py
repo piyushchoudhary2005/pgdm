@@ -18,22 +18,48 @@ from django.views.decorators.http import require_POST
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from axes.models import AccessAttempt
 from django.conf import settings
+from django.core.exceptions import FieldDoesNotExist
 
 from .access import CUSTOMER_SCOPE, role, scope, require_role, RoleRequiredMixin
 from .audit import log_audit, dump
 from .forms import *
 from .models import Activity, AuditLog, Customer, FollowUp, Lead, Opportunity
+from .pagination import query_string_without_page
 
 
 def make_crud(slug, mdl, form, entity, owner_field, search_fields, columns, date_field=None):
     list_url = reverse_lazy(f'{slug}_list')
+    try:
+        status_field = mdl._meta.get_field('status')
+    except FieldDoesNotExist:
+        status_field = None
+    if status_field is None:
+        status_choices = []
+    elif mdl is Opportunity:
+        status_choices = [(status, status) for status in ('Open', 'Won', 'Lost')]
+    else:
+        status_choices = list(status_field.flatchoices)
+
+    def normalize_status(value):
+        return next(
+            (choice for choice, _ in status_choices if str(choice).casefold() == value.casefold()),
+            '',
+        )
 
     class Scoped(LoginRequiredMixin):
         def get_queryset(self):
             return scope(self.request.user, mdl.objects.all(), owner_field)
         def get_context_data(self, **kw):
             ctx = super().get_context_data(**kw)
-            ctx.update(title=entity, slug=slug, list_url=list_url, create_url=reverse(f'{slug}_create'))
+            ctx.update(
+                title=entity,
+                slug=slug,
+                list_url=list_url,
+                create_url=reverse(f'{slug}_create'),
+                status_choices=status_choices,
+                has_status_filter=status_field is not None,
+                selected_status=normalize_status(self.request.GET.get('status', '').strip()),
+            )
             return ctx
 
     class List(Scoped, ListView):
@@ -47,11 +73,15 @@ def make_crud(slug, mdl, form, entity, owner_field, search_fields, columns, date
                 cond = Q()
                 for f in search_fields: cond |= Q(**{f'{f}__icontains': q})
                 qs = qs.filter(cond)
-            if g.get('status') and hasattr(mdl, 'status'): qs = qs.filter(status=g['status'])
+            selected_status = normalize_status(g.get('status', '').strip())
+            if selected_status:
+                qs = qs.filter(status=selected_status)
             if g.get('date') and date_field: qs = qs.filter(**{date_field: g['date']})
             return qs.order_by('-pk')
         def get_context_data(self, **kw):
             ctx = super().get_context_data(**kw)
+            ctx['qs_without_page'] = query_string_without_page(self.request.GET)
+            ctx['pagination_page'] = ctx['page_obj']
             ctx['columns'] = [c.replace('_', ' ').title() for c in columns]
             ctx['rows'] = [{'cells': [getattr(o, c) for c in columns],
                             'detail': reverse(f'{slug}_detail', args=[o.pk]),
@@ -226,4 +256,8 @@ def audit_list(request):
                           ('to', 'created_date__date__lte')]:
         if request.GET.get(param): qs = qs.filter(**{lookup: request.GET[param]})
     page = Paginator(qs, 20).get_page(request.GET.get('page'))
-    return render(request, 'crm/audit.html', {'page': page})
+    return render(request, 'crm/audit.html', {
+        'page': page,
+        'pagination_page': page,
+        'qs_without_page': query_string_without_page(request.GET),
+    })

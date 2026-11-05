@@ -1,14 +1,17 @@
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 
 import json
 from datetime import date, timedelta
 from decimal import Decimal
 
-from django.contrib.auth.models import Group, User
+from django.contrib.auth.models import AnonymousUser, Group, User
+from django.conf import settings
 from django.test import override_settings
 
 from .forms import LeadForm
-from .models import AuditLog, Customer, Lead, Opportunity
+from .models import AuditLog, Customer, FollowUp, Lead, Opportunity
+from .audit import get_ip
+from axes.helpers import get_lockout_response
 
 
 @override_settings(ALLOWED_HOSTS=['localhost', 'testserver'])
@@ -227,3 +230,133 @@ class DashboardAndApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'CustomerAction')
         self.assertNotContains(response, 'PrivateUserAction')
+
+    def test_list_status_filters_are_selects_with_model_status_values(self):
+        self.client.force_login(self.admin)
+
+        customers = self.client.get('/customers/', HTTP_HOST='localhost')
+        opportunities = self.client.get('/opportunities/', HTTP_HOST='localhost')
+
+        self.assertContains(customers, 'name="status"')
+        self.assertEqual(customers.context['status_choices'], [('Active', 'Active'), ('Inactive', 'Inactive')])
+        self.assertEqual(
+            opportunities.context['status_choices'],
+            [('Open', 'Open'), ('Won', 'Won'), ('Lost', 'Lost')],
+        )
+        open_opportunities = self.client.get('/opportunities/?status=open', HTTP_HOST='localhost')
+        self.assertEqual(
+            [opportunity.status for opportunity in open_opportunities.context['object_list']],
+            ['Open'],
+        )
+
+    def test_list_pagination_query_preserves_filters_without_page(self):
+        self.client.force_login(self.admin)
+        FollowUp.objects.bulk_create([
+            FollowUp(
+                customer=self.customer,
+                follow_up_date=date(2026, 6, 1),
+                follow_up_type='Call',
+                remarks='call',
+                status='Planned',
+                assigned_to=self.admin,
+            )
+            for _ in range(11)
+        ])
+
+        response = self.client.get(
+            '/followups/?q=call&status=planned&date=2026-06-01&page=2',
+            HTTP_HOST='localhost',
+        )
+
+        self.assertEqual(response.status_code, 200, response.content.decode())
+        self.assertEqual(
+            response.context['qs_without_page'],
+            'q=call&status=planned&date=2026-06-01',
+        )
+        self.assertContains(
+            response,
+            '?q=call&amp;status=planned&amp;date=2026-06-01&amp;page=1',
+        )
+
+    def test_list_pagination_omits_empty_filter_values(self):
+        self.client.force_login(self.admin)
+
+        response = self.client.get('/customers/?q=&status=&date=&page=1', HTTP_HOST='localhost')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['qs_without_page'], '')
+
+    def test_audit_pagination_query_preserves_all_filters(self):
+        AuditLog.objects.bulk_create([
+            AuditLog(
+                user=self.manager,
+                action='Update',
+                entity_name='Customer',
+                record_id=str(index),
+            )
+            for index in range(21)
+        ])
+        self.client.force_login(self.manager)
+
+        response = self.client.get(
+            '/audit/?user=manager&entity=Customer&action=Update&from=2000-01-01&to=2099-12-31&page=1',
+            HTTP_HOST='localhost',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['qs_without_page'],
+            'user=manager&entity=Customer&action=Update&from=2000-01-01&to=2099-12-31',
+        )
+        self.assertContains(
+            response,
+            '?user=manager&amp;entity=Customer&amp;action=Update&amp;from=2000-01-01&amp;to=2099-12-31&amp;page=2',
+        )
+
+    def test_report_pagination_uses_shared_filter_query(self):
+        for index in range(14):
+            Customer.objects.create(
+                customer_name=f'Report Customer {index}',
+                email=f'report-{index}@example.test',
+                phone=f'70000000{index:02d}',
+                created_by=self.admin,
+            )
+        self.client.force_login(self.admin)
+
+        response = self.client.get(
+            '/reports/customers/?status=Active&from=2000-01-01&to=2099-12-31&page=1',
+            HTTP_HOST='localhost',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context['qs_without_page'],
+            'status=Active&from=2000-01-01&to=2099-12-31',
+        )
+        self.assertContains(
+            response,
+            '?status=Active&amp;from=2000-01-01&amp;to=2099-12-31&amp;page=2',
+        )
+
+    def test_axes_lockout_template_is_configured_and_styled(self):
+        self.assertEqual(settings.AXES_LOCKOUT_TEMPLATE, 'crm/lockout.html')
+        request = RequestFactory().post('/accounts/login/', {'username': 'locked-user'})
+        request.user = AnonymousUser()
+
+        response = get_lockout_response(request)
+
+        self.assertEqual(response.status_code, settings.AXES_HTTP_RESPONSE_CODE)
+        self.assertContains(
+            response,
+            'Account locked, try again in 10 minutes.',
+            status_code=settings.AXES_HTTP_RESPONSE_CODE,
+        )
+
+    def test_audit_ip_uses_remote_addr_not_forwarded_header(self):
+        request = RequestFactory().get(
+            '/',
+            HTTP_X_FORWARDED_FOR='203.0.113.99',
+            REMOTE_ADDR='192.0.2.10',
+        )
+
+        self.assertEqual(get_ip(request), '192.0.2.10')

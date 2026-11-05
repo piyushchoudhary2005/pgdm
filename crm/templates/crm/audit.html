@@ -11,6 +11,4 @@
 <table class="table table-sm"><tr><th>Time</th><th>User</th><th>Action</th><th>Entity</th><th>Record</th><th>Old</th><th>New</th><th>IP</th></tr>
 {% for a in page %}<tr><td>{{ a.created_date }}</td><td>{{ a.user|default_if_none:"-" }}</td><td>{{ a.action }}</td><td>{{ a.entity_name }}</td>
 <td>{{ a.record_id }}</td><td>{{ a.old_value|default_if_none:""|truncatechars:50 }}</td><td>{{ a.new_value|default_if_none:""|truncatechars:50 }}</td><td>{{ a.ip_address }}</td></tr>{% endfor %}</table>
-{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Prev</a>{% endif %}
-Page {{ page.number }}/{{ page.paginator.num_pages }}
-{% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}{% endblock %}
+{% include "crm/_pagination.html" %}{% endblock %}
