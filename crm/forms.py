@@ -54,6 +54,12 @@ class LeadForm(BaseForm):
         widgets = {'phone': forms.TextInput(attrs=PHONE),
                    'expected_value': forms.NumberInput(attrs={'min': 0, 'step': '0.01'})}
 
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        if not self.instance.pk:
+            self.fields['status'].choices = [('New', 'New')]
+            self.fields['status'].initial = 'New'
+
 class OpportunityForm(BaseForm):
     class Meta:
         model = Opportunity

@@ -28,6 +28,11 @@ class LeadSerializer(CleanSerializer):
                   'status', 'expected_value', 'created_date', 'assigned_to', 'priority', 'notes']
         read_only_fields = ['id', 'lead_code', 'created_date', 'assigned_to']
 
+    def validate_status(self, status):
+        if self.instance is None and status != 'New':
+            raise serializers.ValidationError('New leads must have status New.')
+        return status
+
 class OpportunitySerializer(CleanSerializer):
     class Meta:
         model = Opportunity
@@ -43,9 +48,36 @@ class OpportunitySerializer(CleanSerializer):
             raise serializers.ValidationError('Invalid customer.')
         return c
 
+    def validate_lead(self, lead):
+        if lead is not None and not scope(
+            self.context['request'].user,
+            Lead.objects.all(),
+            'assigned_to',
+        ).filter(pk=lead.pk).exists():
+            raise serializers.ValidationError('Invalid lead.')
+        return lead
+
 class FollowUpSerializer(CleanSerializer):
     class Meta:
         model = FollowUp
         fields = ['id', 'customer', 'lead', 'follow_up_date', 'follow_up_type',
                   'remarks', 'status', 'assigned_to', 'subject']
         read_only_fields = ['id', 'assigned_to']
+
+    def validate_customer(self, customer):
+        if customer is not None and not scope(
+            self.context['request'].user,
+            Customer.objects.all(),
+            CUSTOMER_SCOPE,
+        ).filter(pk=customer.pk).exists():
+            raise serializers.ValidationError('Invalid customer.')
+        return customer
+
+    def validate_lead(self, lead):
+        if lead is not None and not scope(
+            self.context['request'].user,
+            Lead.objects.all(),
+            'assigned_to',
+        ).filter(pk=lead.pk).exists():
+            raise serializers.ValidationError('Invalid lead.')
+        return lead

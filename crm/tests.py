@@ -7,7 +7,8 @@ from decimal import Decimal
 from django.contrib.auth.models import Group, User
 from django.test import override_settings
 
-from .models import AuditLog, Customer, Opportunity
+from .forms import LeadForm
+from .models import AuditLog, Customer, Lead, Opportunity
 
 
 @override_settings(ALLOWED_HOSTS=['localhost', 'testserver'])
@@ -25,6 +26,16 @@ class DashboardAndApiTests(TestCase):
             password='Pass123!safe',
         )
         self.manager.groups.add(manager_group)
+        self.sales_user = User.objects.create_user(
+            username='test-sales',
+            email='test-sales@example.test',
+            password='Pass123!safe',
+        )
+        self.other_sales_user = User.objects.create_user(
+            username='other-sales',
+            email='other-sales@example.test',
+            password='Pass123!safe',
+        )
         self.customer = Customer.objects.create(
             customer_name='Test Customer',
             email='customer@example.test',
@@ -38,6 +49,20 @@ class DashboardAndApiTests(TestCase):
             probability=50,
             expected_close_date=date.today() + timedelta(days=30),
             assigned_to=self.admin,
+        )
+        self.other_customer = Customer.objects.create(
+            customer_name='Other Customer',
+            email='other-customer@example.test',
+            phone='6234567890',
+            created_by=self.other_sales_user,
+        )
+        self.other_lead = Lead.objects.create(
+            lead_name='Other Lead',
+            email='other-lead@example.test',
+            phone='6345678901',
+            source='Website',
+            expected_value=Decimal('500.00'),
+            assigned_to=self.other_sales_user,
         )
 
     def test_dashboard_and_pipeline_report_render(self):
@@ -99,6 +124,88 @@ class DashboardAndApiTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()['status'], 409)
         self.assertIn('errors', response.json())
+
+    def test_followup_api_rejects_customer_and_lead_outside_sales_scope(self):
+        self.client.force_login(self.sales_user)
+        payload = {
+            'follow_up_date': (date.today() + timedelta(days=1)).isoformat(),
+            'follow_up_type': 'Call',
+        }
+
+        customer_response = self.client.post(
+            '/api/followups',
+            data=json.dumps({**payload, 'customer': self.other_customer.pk}),
+            content_type='application/json',
+            HTTP_HOST='localhost',
+        )
+        lead_response = self.client.post(
+            '/api/followups',
+            data=json.dumps({**payload, 'lead': self.other_lead.pk}),
+            content_type='application/json',
+            HTTP_HOST='localhost',
+        )
+
+        self.assertEqual(customer_response.status_code, 400)
+        self.assertIn('customer', customer_response.json()['errors'])
+        self.assertEqual(lead_response.status_code, 400)
+        self.assertIn('lead', lead_response.json()['errors'])
+
+    def test_opportunity_api_rejects_lead_outside_sales_scope(self):
+        self.client.force_login(self.sales_user)
+        payload = {
+            'opportunity_name': 'Out of scope lead',
+            'customer': self.customer.pk,
+            'lead': self.other_lead.pk,
+            'amount': '100.00',
+            'stage': 'Qualification',
+            'probability': 10,
+            'expected_close_date': (date.today() + timedelta(days=30)).isoformat(),
+        }
+
+        response = self.client.post(
+            '/api/opportunities',
+            data=json.dumps(payload),
+            content_type='application/json',
+            HTTP_HOST='localhost',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('lead', response.json()['errors'])
+
+    def test_new_lead_form_only_allows_new_status(self):
+        form = LeadForm(data={
+            'lead_name': 'Form Lead',
+            'email': 'form-lead@example.test',
+            'phone': '6456789012',
+            'source': 'Website',
+            'status': 'Qualified',
+            'expected_value': '10',
+        })
+
+        self.assertEqual(list(form.fields['status'].choices), [('New', 'New')])
+        self.assertFalse(form.is_valid())
+        self.assertIn('status', form.errors)
+
+    def test_lead_api_rejects_non_new_status_on_creation(self):
+        payload = {
+            'lead_name': 'API Lead',
+            'email': 'api-lead@example.test',
+            'phone': '6567890123',
+            'source': 'Website',
+            'status': 'Converted',
+            'expected_value': '10.00',
+        }
+
+        self.client.force_login(self.sales_user)
+        response = self.client.post(
+            '/api/leads',
+            data=json.dumps(payload),
+            content_type='application/json',
+            HTTP_HOST='localhost',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('status', response.json()['errors'])
 
     def test_manager_can_view_audit_but_not_user_entity_events(self):
         AuditLog.objects.create(
